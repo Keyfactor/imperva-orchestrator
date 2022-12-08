@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
+using Newtonsoft.Json;
+
 namespace Keyfactor.Extensions.Orchestrator.Imperva.Model
 {
     internal class Site
@@ -11,9 +13,9 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva.Model
 
     internal class SiteDetail
     {
-        [JsonPropertyName("site_id")]
+        [JsonProperty("site_id")]
         internal int SiteID { get; set; }
-        [JsonPropertyName("domain")]
+        [JsonProperty("domain")]
         internal string Domain { get; set; }
     }
 }
