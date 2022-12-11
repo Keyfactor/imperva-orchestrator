@@ -1,4 +1,10 @@
-﻿using Keyfactor.Extensions.Orchestrator.Imperva.Models;
+﻿// Copyright 2021 Keyfactor
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+// and limitations under the License.
+
 using Keyfactor.Logging;
 
 using Microsoft.Extensions.Logging;
@@ -7,9 +13,10 @@ using RestSharp;
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Net.Http;
+using System.Security.Cryptography.X509Certificates;
 
 using Keyfactor.Extensions.Orchestrator.Imperva.Model;
 using Newtonsoft.Json.Linq;
@@ -25,7 +32,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
 
         #region Public Methods
-        public async Task Initialize(string apiURL, string accountID, string apiID, string apiKey)
+        public APIProcessor(string apiURL, string accountID, string apiID, string apiKey)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
@@ -48,17 +55,26 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             int page = 0;
 
             string RESOURCE = $"/api/prov/v1/sites/list?account_id={AccountID}&page_size=50&page_num={page.ToString()}";
-            RestRequest request = new RestRequest(RESOURCE, Method.Post);
 
             do
             {
-                JObject json = JObject.Parse(await SubmitRequest(request));
-                List<Site> pageOfSites = JsonConvert.DeserializeObject<List<Site>>(json.SelectToken("sites").ToString());
-                if (pageOfSites.Count == 0)
-                    break;
-                else
-                    page++;
-                sites.AddRange(pageOfSites);
+                try
+                {
+                    RestRequest request = new RestRequest(RESOURCE, Method.Post);
+
+                    JObject json = await SubmitRequest(request);
+                    List<Site> pageOfSites = JsonConvert.DeserializeObject<List<Site>>(json.SelectToken("sites").ToString());
+                    if (pageOfSites.Count == 0)
+                        break;
+                    else
+                        page++;
+
+                    sites.AddRange(pageOfSites);
+                }
+                catch (Exception ex)
+                {
+                    throw new ImpervaException("Error calling or parsing response for /api/prov/v1/sites/list", ex);
+                }
             } while (1 == 1);
 
 
@@ -66,9 +82,26 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             return sites;
         }
+        public async Task<X509Certificate2> GetServerCertificateAsync(string url)
+        {
+            X509Certificate2 certificate = null;
+            var httpClientHandler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (_, cert, __, ___) =>
+                {
+                    certificate = new X509Certificate2(cert.GetRawCertData());
+                    return true;
+                }
+            };
+
+            var httpClient = new HttpClient(httpClientHandler);
+            await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+
+            return certificate ?? new X509Certificate2();
+        }
         #endregion
 
-        private async Task<string> SubmitRequest(RestRequest request)
+        private async Task<JObject> SubmitRequest(RestRequest request)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
@@ -113,12 +146,22 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 throw new ImpervaException(exceptionMessage);
             }
 
-            ValidateResponse(response.Content);
+            JObject json = JObject.Parse(response.Content);
+
+            ValidateResponse(json);
 
             logger.LogTrace($"API Result: {response.Content}");
             logger.MethodExit(LogLevel.Debug);
 
-            return response.Content;
+            return json;
+        }
+
+        private void ValidateResponse(JObject json)
+        {
+            int returnCode = Convert.ToInt32(JsonConvert.DeserializeObject<string>(json.SelectToken("res").ToString()));
+
+            if (returnCode != 0)
+                throw new ImpervaException($"Return code = {returnCode.ToString()}, Error = {json.SelectToken("res_message").ToString()}, Debug Info = {json.SelectToken("debug_info").ToString()}");
         }
     }
 }

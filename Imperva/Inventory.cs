@@ -7,15 +7,18 @@
 
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography.X509Certificates;
 
 using Keyfactor.Logging;
 using Keyfactor.Orchestrators.Extensions;
+using Keyfactor.Extensions.Orchestrator.Imperva.Model;
+using Keyfactor.Orchestrators.Common.Enums;
 
 using Microsoft.Extensions.Logging;
 
 namespace Keyfactor.Extensions.Orchestrator.Imperva
 {
-    public class Inventory : IInventoryJobExtension
+    public class Inventory : BaseJob, IInventoryJobExtension
     {
         public string ExtensionName => "";
 
@@ -28,25 +31,42 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             try
             {
+                SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, config.CertificateStoreDetails.StorePassword);
+
+                APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
+                List<Site> sites = api.GetSites().Result;
+
+                foreach(Site site in sites)
+                {
+                    X509Certificate2 certificate = api.GetServerCertificateAsync(site.Domain).Result;
+                    if (string.IsNullOrEmpty(certificate.Thumbprint))
+                        continue;
+                    inventoryItems.Add(new CurrentInventoryItem()
+                    {
+                        Alias = site.SiteID.ToString(),
+                        Certificates = new string[] { Convert.ToBase64String(certificate.Export(X509ContentType.Cert)) },
+                        ItemStatus = OrchestratorInventoryItemStatus.Unknown,
+                        UseChainLevel = false,
+                        PrivateKeyEntry = true,
+                        Parameters = new Dictionary<string, object>() { { "Domain", site.Domain } }
+                    });
+                }
             }
             catch (Exception ex)
             {
-                //Status: 2=Success, 3=Warning, 4=Error
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = "Custom message you want to show to show up as the error message in Job History in KF Command" };
+                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva Inventory job, URL {ApiURL}, AccountID {AccountID}. ");
+                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }
 
             try
             {
-                //Sends inventoried certificates back to KF Command
                 submitInventory.Invoke(inventoryItems);
-                //Status: 2=Success, 3=Warning, 4=Error
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
             }
             catch (Exception ex)
             {
-                // NOTE: if the cause of the submitInventory.Invoke exception is a communication issue between the Orchestrator server and the Command server, the job status returned here
-                //  may not be reflected in Keyfactor Command.
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = "Custom message you want to show to show up as the error message in Job History in KF Command" };
+                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error returning cerificates for Imperva Inventory job, URL {ApiURL}, AccountID {AccountID}");
+                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }
         }
     }
