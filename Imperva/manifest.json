@@ -1,0 +1,14 @@
+{
+  "extensions": {
+    "Keyfactor.Orchestrators.Extensions.IOrchestratorJobExtension": {
+      "CertStores.Imperva.Inventory": {
+        "assemblypath": "Imperva.dll",
+        "TypeFullName": "Keyfactor.Extensions.Orchestrator.Imperva.Inventory"
+      },
+      "CertStores.Imperva.Management": {
+        "assemblypath": "Imperva.dll",
+        "TypeFullName": "Keyfactor.Extensions.Orchestrator.Imperva.Management"
+      }
+    }
+  }
+}

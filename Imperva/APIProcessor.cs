@@ -31,7 +31,6 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         private string ApiKey { get; set; }
 
 
-        #region Public Methods
         public APIProcessor(string apiURL, string accountID, string apiID, string apiKey)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
@@ -45,6 +44,53 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             logger.MethodExit(LogLevel.Debug);
         }
 
+        #region Public Methods
+        public async void AddCertificate(string siteID, string certificate, string password)
+        {
+            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
+            logger.MethodEntry(LogLevel.Debug);
+
+            CertificateRequestPUT certificateRequest = new CertificateRequestPUT() { Certificate = certificate, Password = password };
+            string RESOURCE = $"/api/prov/v2/sites/{siteID}/customCertificate";
+            RestRequest request = new RestRequest(RESOURCE, Method.Put);
+            request.AddJsonBody<CertificateRequestPUT>(certificateRequest);
+
+            try
+            {
+                JObject json = await SubmitRequest(request);
+            }
+            catch (Exception ex)
+            {
+                throw new ImpervaException($"Error calling or parsing response for [PUT] /api/prov/v2/sites/{siteID}/customCertificate", ex);
+            }
+
+            logger.MethodExit(LogLevel.Debug);
+
+            return;
+        }
+
+        public async void RemoveCertificate(string siteID)
+        {
+            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
+            logger.MethodEntry(LogLevel.Debug);
+
+            string RESOURCE = $"/api/prov/v2/sites/{siteID}/customCertificate?auth_type=RSA";
+            RestRequest request = new RestRequest(RESOURCE, Method.Delete);
+
+            try
+            {
+                JObject json = await SubmitRequest(request);
+            }
+            catch (Exception ex)
+            {
+                throw new ImpervaException($"Error calling or parsing response for [DELETE] /api/prov/v2/sites/{siteID}/customCertificate", ex);
+            }
+
+            logger.MethodExit(LogLevel.Debug);
+
+            return;
+        }
+
         public async Task<List<Site>> GetSites()
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
@@ -54,12 +100,11 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             int page = 0;
 
-            string RESOURCE = $"/api/prov/v1/sites/list?account_id={AccountID}&page_size=50&page_num={page.ToString()}";
-
             do
             {
                 try
                 {
+                    string RESOURCE = $"/api/prov/v1/sites/list?account_id={AccountID}&page_size=50&page_num={page.ToString()}";
                     RestRequest request = new RestRequest(RESOURCE, Method.Post);
 
                     JObject json = await SubmitRequest(request);
@@ -82,8 +127,12 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             return sites;
         }
+
         public async Task<X509Certificate2> GetServerCertificateAsync(string url)
         {
+            if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                url = "https://" + url;
+
             X509Certificate2 certificate = null;
             var httpClientHandler = new HttpClientHandler
             {

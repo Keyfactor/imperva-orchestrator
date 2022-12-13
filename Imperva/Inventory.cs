@@ -25,7 +25,9 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         public JobResult ProcessJob(InventoryJobConfiguration config, SubmitInventoryUpdate submitInventory)
         {
             ILogger logger = LogHandler.GetClassLogger(this.GetType());
-            logger.LogDebug($"Begin Inventory...");
+            logger.LogDebug($"Begin {config.Capability} for job id {config.JobId}...");
+            logger.LogDebug($"Server: {config.CertificateStoreDetails.ClientMachine}");
+            logger.LogDebug($"Store Path: {config.CertificateStoreDetails.StorePath}");
 
             List<CurrentInventoryItem> inventoryItems = new List<CurrentInventoryItem>();
 
@@ -43,7 +45,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                         continue;
                     inventoryItems.Add(new CurrentInventoryItem()
                     {
-                        Alias = site.SiteID.ToString(),
+                        Alias = site.Domain,
                         Certificates = new string[] { Convert.ToBase64String(certificate.Export(X509ContentType.Cert)) },
                         ItemStatus = OrchestratorInventoryItemStatus.Unknown,
                         UseChainLevel = false,
@@ -55,6 +57,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             catch (Exception ex)
             {
                 string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva Inventory job, URL {ApiURL}, AccountID {AccountID}. ");
+                logger.LogError(errMessage);
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }
 
