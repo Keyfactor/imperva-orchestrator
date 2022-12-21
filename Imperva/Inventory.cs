@@ -36,12 +36,12 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, config.CertificateStoreDetails.StorePassword);
 
                 APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
-                List<Site> sites = api.GetSites().Result;
+                List<Site> sites = api.GetSites();
 
                 foreach(Site site in sites)
                 {
-                    X509Certificate2 certificate = api.GetServerCertificateAsync(site.Domain).Result;
-                    if (string.IsNullOrEmpty(certificate.Thumbprint))
+                    X509Certificate2 certificate = api.GetServerCertificateAsync(site.Domain);
+                    if (certificate == null)
                         continue;
                     inventoryItems.Add(new CurrentInventoryItem()
                     {

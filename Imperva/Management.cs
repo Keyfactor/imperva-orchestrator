@@ -35,27 +35,30 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             try
             {
-                //Management jobs, unlike Discovery, Inventory, and Reenrollment jobs can have 3 different purposes:
+                if (config.OperationType != CertStoreOperationType.Add && config.OperationType != CertStoreOperationType.Remove)
+                    return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Site {config.CertificateStoreDetails.StorePath} on server {config.CertificateStoreDetails.ClientMachine}: Unsupported operation: {config.OperationType.ToString()}" };
+
+                APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
+
+                List<Site> sites = api.GetSites();
+
+                Site site = sites.FirstOrDefault(p => p.Domain == config.JobCertificate.Alias);
+                if (site == null)
+                    throw new ImpervaException($"Site {config.JobCertificate.Alias} is not currently being managed by Imperva.  No certificate can be bound to this site.");
+
                 switch (config.OperationType)
                 {
                     case CertStoreOperationType.Add:
-                        APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
-                        List<Site> sites = api.GetSites().Result;
 
-                        Site site = sites.FirstOrDefault(p => p.Domain == config.JobCertificate.Alias);
-                        if (string.IsNullOrEmpty(site.Domain))
-                            throw new ImpervaException($"Site {config.JobCertificate.Alias} not found");
-
-                        if (!config.Overwrite && !string.IsNullOrEmpty(api.GetServerCertificateAsync(site.Domain).Result.Thumbprint))
+                        if (!config.Overwrite && api.GetServerCertificateAsync(site.Domain) != null)
                             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, FailureMessage = $"Overwrite is set to false but there is a certificate that already is bound to {config.JobCertificate.Alias}.  Please set overwrite to true and reschedule the job to replace this certificate." };
 
-                        api.AddCertificate(config.JobCertificate.Alias, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
+                        api.AddCertificate(site.SiteID, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
 
                         break;
                     case CertStoreOperationType.Remove:
+                        api.RemoveCertificate(site.SiteID);
                         break;
-                    default:
-                        return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Site {config.CertificateStoreDetails.StorePath} on server {config.CertificateStoreDetails.ClientMachine}: Unsupported operation: {config.OperationType.ToString()}" };
                 }
             }
             catch (Exception ex)

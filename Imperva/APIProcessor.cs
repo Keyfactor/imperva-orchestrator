@@ -45,53 +45,39 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         }
 
         #region Public Methods
-        public async void AddCertificate(string siteID, string certificate, string password)
+        public void AddCertificate(int siteID, string certificate, string password)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
             CertificateRequestPUT certificateRequest = new CertificateRequestPUT() { Certificate = certificate, Password = password };
-            string RESOURCE = $"/api/prov/v2/sites/{siteID}/customCertificate";
+            string RESOURCE = $"/api/prov/v2/sites/{siteID.ToString()}/customCertificate";
             RestRequest request = new RestRequest(RESOURCE, Method.Put);
-            request.AddJsonBody<CertificateRequestPUT>(certificateRequest);
+            request.AddParameter("application/json", JsonConvert.SerializeObject(certificateRequest), ParameterType.RequestBody);
 
-            try
-            {
-                JObject json = await SubmitRequest(request);
-            }
-            catch (Exception ex)
-            {
-                throw new ImpervaException($"Error calling or parsing response for [PUT] /api/prov/v2/sites/{siteID}/customCertificate", ex);
-            }
+            JObject json = SubmitRequest(request);
 
             logger.MethodExit(LogLevel.Debug);
 
             return;
         }
 
-        public async void RemoveCertificate(string siteID)
+        public void RemoveCertificate(int siteID)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
-            string RESOURCE = $"/api/prov/v2/sites/{siteID}/customCertificate?auth_type=RSA";
+            string RESOURCE = $"/api/prov/v2/sites/{siteID.ToString()}/customCertificate?auth_type=RSA";
             RestRequest request = new RestRequest(RESOURCE, Method.Delete);
 
-            try
-            {
-                JObject json = await SubmitRequest(request);
-            }
-            catch (Exception ex)
-            {
-                throw new ImpervaException($"Error calling or parsing response for [DELETE] /api/prov/v2/sites/{siteID}/customCertificate", ex);
-            }
+            JObject json = SubmitRequest(request);
 
             logger.MethodExit(LogLevel.Debug);
 
             return;
         }
 
-        public async Task<List<Site>> GetSites()
+        public List<Site> GetSites()
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
@@ -102,24 +88,17 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             do
             {
-                try
-                {
-                    string RESOURCE = $"/api/prov/v1/sites/list?account_id={AccountID}&page_size=50&page_num={page.ToString()}";
-                    RestRequest request = new RestRequest(RESOURCE, Method.Post);
+                string RESOURCE = $"/api/prov/v1/sites/list?account_id={AccountID}&page_size=50&page_num={page.ToString()}";
+                RestRequest request = new RestRequest(RESOURCE, Method.Post);
 
-                    JObject json = await SubmitRequest(request);
-                    List<Site> pageOfSites = JsonConvert.DeserializeObject<List<Site>>(json.SelectToken("sites").ToString());
-                    if (pageOfSites.Count == 0)
-                        break;
-                    else
-                        page++;
+                JObject json = SubmitRequest(request);
+                List<Site> pageOfSites = JsonConvert.DeserializeObject<List<Site>>(json.SelectToken("sites").ToString());
+                if (pageOfSites.Count == 0)
+                    break;
+                else
+                    page++;
 
-                    sites.AddRange(pageOfSites);
-                }
-                catch (Exception ex)
-                {
-                    throw new ImpervaException("Error calling or parsing response for /api/prov/v1/sites/list", ex);
-                }
+                sites.AddRange(pageOfSites);
             } while (1 == 1);
 
 
@@ -128,7 +107,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             return sites;
         }
 
-        public async Task<X509Certificate2> GetServerCertificateAsync(string url)
+        public X509Certificate2 GetServerCertificateAsync(string url)
         {
             if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 url = "https://" + url;
@@ -144,13 +123,18 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             };
 
             var httpClient = new HttpClient(httpClientHandler);
-            await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
 
-            return certificate ?? new X509Certificate2();
+            try
+            {
+                httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url)).GetAwaiter().GetResult();
+            }
+            catch (HttpRequestException) { }
+
+            return certificate;
         }
         #endregion
 
-        private async Task<JObject> SubmitRequest(RestRequest request)
+        private JObject SubmitRequest(RestRequest request)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
@@ -174,13 +158,14 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             try
             {
-                response = await client.ExecuteAsync(request);
+                response = client.Execute(request);
+                logger.MethodExit(LogLevel.Debug);
             }
             catch (Exception ex)
             {
                 string exceptionMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing {request.Resource}");
                 logger.LogError(exceptionMessage);
-                throw new ImpervaException(exceptionMessage);
+                throw ex;
             }
 
             if (response.StatusCode != System.Net.HttpStatusCode.OK &&
@@ -197,20 +182,20 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             JObject json = JObject.Parse(response.Content);
 
-            ValidateResponse(json);
+            string err = ValidateResponse(json);
+            if (!string.IsNullOrEmpty(err))
+                throw new ImpervaException($"Error processing {request.Resource}: {err}");
 
             logger.LogTrace($"API Result: {response.Content}");
-            logger.MethodExit(LogLevel.Debug);
 
             return json;
         }
 
-        private void ValidateResponse(JObject json)
+        private string ValidateResponse(JObject json)
         {
             int returnCode = Convert.ToInt32(JsonConvert.DeserializeObject<string>(json.SelectToken("res").ToString()));
 
-            if (returnCode != 0)
-                throw new ImpervaException($"Return code = {returnCode.ToString()}, Error = {json.SelectToken("res_message").ToString()}, Debug Info = {json.SelectToken("debug_info").ToString()}");
+            return returnCode == 0 ? String.Empty : $"Return code = {returnCode.ToString()}, Error = {json.SelectToken("res_message").ToString()}, Debug Info = {json.SelectToken("debug_info").ToString()}";
         }
     }
 }
