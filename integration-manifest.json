@@ -1,9 +1,9 @@
 {
   "$schema": "https://keyfactor.github.io/integration-manifest-schema.json",
   "integration_type": "orchestrator",
-  "name": "Integration Template",
+  "name": "Imperva",
   "status": "prototype",
-  "description": "This project is meant to be a template to quickly build a basic integration product build. Currently in dev, a work in progress,",
+  "description": "The Imperva Orchestrator Extension allows for the management of SSL certificates bound to web sites managed by the Imperva cloud-based firewall.",
   "link_github": false,
   "update_catalog": false,
   "about": {
@@ -11,18 +11,18 @@
       "win": {
         "supportsCreateStore": false,
         "supportsDiscovery": false,
-        "supportsManagementAdd": false,
-        "supportsManagementRemove": false,
+        "supportsManagementAdd": true,
+        "supportsManagementRemove": true,
         "supportsReenrollment": false,
-        "supportsInventory": false
+        "supportsInventory": true
       },
       "linux": {
         "supportsCreateStore": false,
         "supportsDiscovery": false,
-        "supportsManagementAdd": false,
-        "supportsManagementRemove": false,
+        "supportsManagementAdd": true,
+        "supportsManagementRemove": true,
         "supportsReenrollment": false,
-        "supportsInventory": false
+        "supportsInventory": true
       }
     }
   }
