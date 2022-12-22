@@ -22,7 +22,7 @@ Below are the values you need to enter if you choose to manually create the Impe
 - **Name** – Required. The display name you wish to use for the new certificate store type.  Suggested value - Imperva
 - **ShortName** - Required. Suggested value - Imperva.  If you choose to use a different value, please refer to Step 6 under Imperva Orchestrator Extension Installation above.
 - **Custom Capability** - Unchecked
-- **Supported Job Types** - Inventory, Add, and Remove, should all be checked.
+- **Supported Job Types** - Inventory, Add, and Remove should all be checked.
 - **Needs Server** - Unchecked
 - **Blueprint Allowed** - Checked if you wish to make use of blueprinting.  Please refer to the Keyfactor Command Reference Guide for more details on this feature.
 - **Uses PoserShell** - Unchecked
