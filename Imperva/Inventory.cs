@@ -15,12 +15,15 @@ using Keyfactor.Extensions.Orchestrator.Imperva.Model;
 using Keyfactor.Orchestrators.Common.Enums;
 
 using Microsoft.Extensions.Logging;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
 
 namespace Keyfactor.Extensions.Orchestrator.Imperva
 {
     public class Inventory : BaseJob, IInventoryJobExtension
     {
         public string ExtensionName => "";
+
+        public IPAMSecretResolver _resolver;
 
         public JobResult ProcessJob(InventoryJobConfiguration config, SubmitInventoryUpdate submitInventory)
         {
@@ -33,7 +36,9 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             try
             {
-                SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, config.CertificateStoreDetails.StorePassword);
+                string storePassword = PAMUtilities.ResolvePAMField(_resolver, logger, "Store Password", config.CertificateStoreDetails.StorePassword);
+
+                SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, storePassword);
 
                 APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
                 List<Site> sites = api.GetSites();

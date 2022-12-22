@@ -15,6 +15,7 @@ using Keyfactor.Extensions.Orchestrator.Imperva.Model;
 
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
 
 namespace Keyfactor.Extensions.Orchestrator.Imperva
 {
@@ -22,6 +23,8 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
     {
         //Necessary to implement IManagementJobExtension but not used.  Leave as empty string.
         public string ExtensionName => "";
+
+        public IPAMSecretResolver _resolver;
 
         //Job Entry Point
         public JobResult ProcessJob(ManagementJobConfiguration config)
@@ -31,10 +34,12 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             logger.LogDebug($"Server: {config.CertificateStoreDetails.ClientMachine}");
             logger.LogDebug($"Store Path: {config.CertificateStoreDetails.StorePath}");
 
-            SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, config.CertificateStoreDetails.StorePassword);
-
             try
             {
+                string storePassword = PAMUtilities.ResolvePAMField(_resolver, logger, "Store Password", config.CertificateStoreDetails.StorePassword);
+
+                SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, storePassword);
+
                 if (config.OperationType != CertStoreOperationType.Add && config.OperationType != CertStoreOperationType.Remove)
                     return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Site {config.CertificateStoreDetails.StorePath} on server {config.CertificateStoreDetails.ClientMachine}: Unsupported operation: {config.OperationType.ToString()}" };
 
