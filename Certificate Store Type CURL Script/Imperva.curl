@@ -1,0 +1,45 @@
+###CURL script to create Imperva certificate store type
+
+###Replacement Variables - Manually replace these before running###
+# {URL} - Base URL for your Keyfactor deployment
+# {UserName} - User name with access to run Keyfactor APIs
+# {UserPassword} - Password for the UserName above
+
+curl -X POST {URL}/keyfactorapi/certificatestoretypes -H "Content-Type: application/json" -H "x-keyfactor-requested-with: APIClient" -u {UserName}:{UserPassword} -d '{
+  "Name": "Imperva",
+  "ShortName": "Imperva",
+  "Capability": "Imperva",
+  "ServerRequired": false,
+  "BlueprintAllowed": false,
+  "CustomAliasAllowed": "Required",
+  "PowerShell": false,
+  "PrivateKeyAllowed": "Required",
+  "SupportedOperations": {
+    "Add": true,
+    "Create": false,
+    "Discovery": false,
+    "Enrollment": false,
+    "Remove": true
+  },
+  "PasswordOptions": {
+    "Style": "Default",
+    "EntrySupported": false,
+    "StoreRequired": true
+  },
+  "Properties": [],
+  "EntryParameters": []
+}'
+Footer
+© 2022 GitHub, Inc.
+Footer navigation
+Terms
+Privacy
+Security
+Status
+Docs
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
