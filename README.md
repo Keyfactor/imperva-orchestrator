@@ -84,7 +84,7 @@ None
 &nbsp;  
 ## Creating an Imperva Certificate Store in Keyfactor Command  
 To create a Keyfactor Command certificate store of certificate store type Imperva, go to Locations => Certificate Stores and click ADD.  Then enter the following:  
-- Category - Imperva (or whatever alternate ShortName value you entered when creating your certificate store type).
+- Category - Imperva (or the alternate ShortName value you entered when creating your certificate store type).
 - Container - Optional.  Refer to Keyfactor Command documentation about this feature.
 - Client Machine - The URL that will be used as the base URL for Imperva endpoint calls.  Should be https://my.imperva.com
 - Store Path - Your Imperva account id.  Please refer to your Imperva documentation as to how to find your Imperva account id.
