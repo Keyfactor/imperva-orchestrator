@@ -52,13 +52,14 @@ The version number of a the Imperva Orchestrator Extension can be verified by ri
 5. Copy the contents of the download installation zip file to the folder created in Step 3.
 6. (Optional) If you decide to create the certificate store type with a short names different than the suggested value of "Imperva", edit the manifest.json file in the folder you created in step 3, and modify each "ShortName" in each "Certstores.{ShortName}.{Operation}" line with the ShortName you used to create the certificate store type in Keyfactor Command.  If you created it with the suggested value, this step can be skipped.
 7. Start the Keyfactor Universal Orchestrator Service.
+8. In Keyfactor Command, go to Orchestrators => Management and approve the Keyfactor Orchestrator containing the Imperva capability that you just installed by selecting the orchestrator and clicking APPROVE.
 &nbsp;  
 &nbsp;  
 ## Certificate Store Type Settings
 Below are the values you need to enter if you choose to manually create the Imperva certificate store type in the Keyfactor Command UI (related to Step 1 of Imperva Orchestrator Extension Installation above).  
 
 *Basic Tab:*
-- **Name** – Required. The display name you wish to use for the new Certificate Store Type.  Suggested value - Imperva
+- **Name** – Required. The display name you wish to use for the new certificate store type.  Suggested value - Imperva
 - **ShortName** - Required. Suggested value - Imperva.  If you choose to use a different value, please refer to Step 6 under Imperva Orchestrator Extension Installation above.
 - **Custom Capability** - Unchecked
 - **Supported Job Types** - Inventory, Add, and Remove, should all be checked.
@@ -81,4 +82,10 @@ None
 None
 &nbsp;  
 &nbsp;  
+## Creating an Imperva Certificate Store in Keyfactor Command  
+To create a Keyfactor Command certificate store of certificate store type Imperva, go to Locations => Certificate Stores and click ADD.  Then enter the following:  
+- Category - Imperva (or whatever alternate ShortName value you entered when creating your certificate store type).
+- Container - Optional.  Refer to Keyfactor Command documentation about this feature.
+- Client Machine - The URL that will be used as the base URL for Imperva endpoint calls.  Should be https://my.imperva.com
+- Store Path - Your Imperva account id
 
