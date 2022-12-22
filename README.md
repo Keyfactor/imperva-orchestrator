@@ -55,7 +55,7 @@ The version number of a the Imperva Orchestrator Extension can be verified by ri
 &nbsp;  
 &nbsp;  
 ## Certificate Store Type Settings
-Below are the values you need to enter if you choose to manually create the Imperva certificate store type in the Keyfactor Command UI (related to Step 1 of Imperva Orchestrator Extension Installation above).
+Below are the values you need to enter if you choose to manually create the Imperva certificate store type in the Keyfactor Command UI (related to Step 1 of Imperva Orchestrator Extension Installation above).  
 *Basic Tab:*
 - **Name** – Required. The display name you wish to use for the new Certificate Store Type.  Suggested value - Imperva
 - **ShortName** - Required. Suggested value - Imperva.  If you choose to use a different value, please refer to Step 6 under Imperva Orchestrator Extension Installation above.
