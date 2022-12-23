@@ -25,6 +25,11 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
         public IPAMSecretResolver _resolver;
 
+        public Inventory(IPAMSecretResolver resolver)
+        {
+            _resolver = resolver;
+        }
+
         public JobResult ProcessJob(InventoryJobConfiguration config, SubmitInventoryUpdate submitInventory)
         {
             ILogger logger = LogHandler.GetClassLogger(this.GetType());

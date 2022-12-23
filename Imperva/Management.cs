@@ -26,6 +26,11 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
         public IPAMSecretResolver _resolver;
 
+        public Management(IPAMSecretResolver resolver)
+        {
+            _resolver = resolver;
+        }
+
         //Job Entry Point
         public JobResult ProcessJob(ManagementJobConfiguration config)
         {

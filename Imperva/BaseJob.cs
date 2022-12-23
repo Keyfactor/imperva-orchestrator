@@ -16,7 +16,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
         internal void SetAPIProperties(string apiUrl, string accountID, string apiIDKey)
         {
-            string[] properties = apiIDKey.Split(new char[] { '|' });
+            string[] properties = apiIDKey.Split(new char[] { ',' });
             if (properties.Length != 2)
                 throw new ImpervaException("Invalid Store Password.  Value must a string with 2 values, your Api ID then Api Key separated by '|'");
 
