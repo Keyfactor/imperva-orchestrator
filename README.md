@@ -133,6 +133,6 @@ To create a Keyfactor Command certificate store of certificate store type Imperv
 - Category - Imperva (or the alternate ShortName value you entered when creating your certificate store type).
 - Container - Optional.  Refer to Keyfactor Command documentation about this feature.
 - Client Machine - The URL that will be used as the base URL for Imperva endpoint calls.  Should be https://my.imperva.com
-- Store Path - Your Imperva account id.  Please refer to your Imperva documentation as to how to find your Imperva account id.
+- Store Path - Your Imperva account id.  Please refer to the [Imperva documentation](https://docs.imperva.com/howto/bd68301b) as to how to find your Imperva account id.
 - Store Password - Your Imperva API id and API key concatenated with a comma (,}.  For example: 12345,12345678-1234-1234-1234-123456789ABC.  Please refer to the [Imperva documentation](https://docs.imperva.com/bundle/cloud-application-security/page/settings/api-keys.htm#:~:text=In%20the%20Cloud%20Security%20Console%20top%20menu%20bar%2C%20click%20Account,to%20create%20a%20new%20key.) as to how to create an API id and key.
 
