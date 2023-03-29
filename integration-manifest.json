@@ -2,10 +2,10 @@
   "$schema": "https://keyfactor.github.io/integration-manifest-schema.json",
   "integration_type": "orchestrator",
   "name": "Imperva",
-  "status": "pilot",
+  "status": "production",
   "description": "The Imperva Orchestrator Extension allows for the management of SSL certificates bound to web sites managed by the Imperva cloud-based firewall.",
-  "link_github": false,
-  "update_catalog": false,
+  "link_github": true,
+  "update_catalog": true,
   "about": {
     "orchestrator": {
       "UOFramework": "10.1",
