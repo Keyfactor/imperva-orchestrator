@@ -107,8 +107,14 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             return sites;
         }
 
-        public X509Certificate2 GetServerCertificateAsync(string url)
+        public X509Certificate2 GetServerCertificateAsync(string url, out bool hadError)
         {
+            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
+            logger.MethodEntry(LogLevel.Debug);
+            logger.LogTrace($"Calling URL {url}");
+
+            hadError = false; 
+
             if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 url = "https://" + url;
 
@@ -117,7 +123,9 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             {
                 ServerCertificateCustomValidationCallback = (_, cert, __, ___) =>
                 {
+                    logger.LogTrace("Hit handler");
                     certificate = new X509Certificate2(cert.GetRawCertData());
+                    logger.LogTrace($"Cert returned: {cert.GetRawCertData()}");
                     return true;
                 }
             };
@@ -128,8 +136,13 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             {
                 httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url)).GetAwaiter().GetResult();
             }
-            catch (HttpRequestException) { }
+            catch (Exception ex)
+            {
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error retrieving certificate for {url}: "));
+                hadError = true;
+            }
 
+            logger.MethodExit(LogLevel.Debug);
             return certificate;
         }
         #endregion
