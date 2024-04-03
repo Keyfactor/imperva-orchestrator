@@ -60,7 +60,8 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 {
                     case CertStoreOperationType.Add:
 
-                        if (!config.Overwrite && api.GetServerCertificateAsync(site.Domain) != null)
+                        bool hadError = false;
+                        if (!config.Overwrite && api.GetServerCertificateAsync(site.Domain, out hadError) != null)
                             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, FailureMessage = $"Overwrite is set to false but there is a certificate that already is bound to {config.JobCertificate.Alias}.  Please set overwrite to true and reschedule the job to replace this certificate." };
 
                         api.AddCertificate(site.SiteID, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
