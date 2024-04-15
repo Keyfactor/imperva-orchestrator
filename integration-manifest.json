@@ -6,6 +6,8 @@
   "description": "The Imperva Orchestrator Extension allows for the management of SSL certificates bound to web sites managed by the Imperva cloud-based firewall.",
   "release_dir": "Imperva/bin/Release",
   "support_level": "kf-supported",
+  "update_catalog": true,
+  "link_github": true,
   "about": {
     "orchestrator": {
       "UOFramework": "10.1",
