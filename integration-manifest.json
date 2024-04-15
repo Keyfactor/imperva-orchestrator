@@ -25,6 +25,32 @@
         "supportsManagementRemove": true,
         "supportsReenrollment": false,
         "supportsInventory": true
+      },
+      "store_types": {
+        "Imperva": {
+          "Name": "Imperva",
+          "ShortName": "Imperva",
+          "Capability": "Imperva",
+          "ServerRequired": false,
+          "BlueprintAllowed": false,
+          "CustomAliasAllowed": "Required",
+          "PowerShell": false,
+          "PrivateKeyAllowed": "Required",
+          "SupportedOperations": {
+            "Add": true,
+            "Create": false,
+            "Discovery": false,
+            "Enrollment": false,
+            "Remove": true
+          },
+          "PasswordOptions": {
+            "Style": "Default",
+            "EntrySupported": false,
+            "StoreRequired": true
+          },
+          "Properties": [],
+          "EntryParameters": []
+        }
       }
     }
   }

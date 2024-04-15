@@ -38,6 +38,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             logger.LogDebug($"Store Path: {config.CertificateStoreDetails.StorePath}");
 
             List<CurrentInventoryItem> inventoryItems = new List<CurrentInventoryItem>();
+            bool oneOrMoreErrors = false;
 
             try
             {
@@ -50,7 +51,10 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
                 foreach(Site site in sites)
                 {
-                    X509Certificate2 certificate = api.GetServerCertificateAsync(site.Domain);
+                    bool hadError = false;
+                    X509Certificate2 certificate = api.GetServerCertificateAsync(site.Domain, out hadError);
+                    if (hadError)
+                        oneOrMoreErrors = true;
                     if (certificate == null)
                         continue;
                     inventoryItems.Add(new CurrentInventoryItem()
@@ -74,7 +78,10 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             try
             {
                 submitInventory.Invoke(inventoryItems);
-                return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
+                if (oneOrMoreErrors)
+                    return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, FailureMessage = "One or more certificates could not be returned.  Please see the log for more details." };
+                else
+                    return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
             }
             catch (Exception ex)
             {
