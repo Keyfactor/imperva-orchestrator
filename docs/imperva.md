@@ -151,8 +151,8 @@ The following table describes the required and optional fields for the `Imperva`
 | --------- | ----------- | ------------------------- |
 | Category | Select "Imperva" or the customized certificate store name from the previous step. | |
 | Container | Optional container to associate certificate store with. | |
-| Client Machine | For the Client Machine field, enter the base URL for your Imperva endpoint calls, such as https://my.imperva.com. | |
-| Store Path | For the Store Path field, enter your Imperva account ID. Refer to the Imperva documentation on how to locate your account ID. | |
+| Client Machine | The base URL for Imperva endpoint calls required in the Client Machine field, formatted as https://my.imperva.com. | |
+| Store Path | The Imperva account ID required in the Store Path field to identify the specific account, as detailed in the Imperva documentation. | |
 | Orchestrator | Select an approved orchestrator capable of managing `Imperva` certificates. Specifically, one with the `Imperva` capability. | |
 
 * **Using kfutil**

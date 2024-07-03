@@ -1,9 +1,9 @@
 {
-    "$schema": "/Users/hroszell/coding/dev/staff-tools/keyfactor.github.io/v2/integration-manifest-schema.json",
+    "$schema": "https://keyfactor.github.io/v2/integration-manifest-schema.json",
     "integration_type": "orchestrator",
     "name": "Imperva",
     "status": "production",
-    "description": "The Imperva Orchestrator Extension allows for the management of SSL certificates bound to web sites managed by the Imperva cloud-based firewall.",
+    "description": "The Imperva Universal Orchestrator extension enables remote management of cryptographic certificates on Imperva platforms, integrating inventory, add, and remove functionalities within Keyfactor Command.",
     "release_dir": "Imperva/bin/Release",
     "support_level": "kf-supported",
     "update_catalog": true,
@@ -13,22 +13,6 @@
             "UOFramework": "10.1",
             "pam_support": true,
             "keyfactor_platform_version": "9.10",
-            "win": {
-                "supportsCreateStore": false,
-                "supportsDiscovery": false,
-                "supportsManagementAdd": true,
-                "supportsManagementRemove": true,
-                "supportsReenrollment": false,
-                "supportsInventory": true
-            },
-            "linux": {
-                "supportsCreateStore": false,
-                "supportsDiscovery": false,
-                "supportsManagementAdd": true,
-                "supportsManagementRemove": true,
-                "supportsReenrollment": false,
-                "supportsInventory": true
-            },
             "store_types": [
                 {
                     "Name": "Imperva",
@@ -53,8 +37,8 @@
                     },
                     "Properties": [],
                     "EntryParameters": [],
-                    "ClientMachineDescription": "For the Client Machine field, enter the base URL for your Imperva endpoint calls, such as https://my.imperva.com.",
-                    "StorePathDescription": "For the Store Path field, enter your Imperva account ID. Refer to the Imperva documentation on how to locate your account ID."
+                    "ClientMachineDescription": "The base URL for Imperva endpoint calls required in the Client Machine field, formatted as https://my.imperva.com.",
+                    "StorePathDescription": "The Imperva account ID required in the Store Path field to identify the specific account, as detailed in the Imperva documentation."
                 }
             ]
         }
