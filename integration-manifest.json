@@ -16,7 +16,6 @@
       "keyfactor_platform_version": "9.10",
       "store_types": [
         {
-          "Imperva": {
             "Name": "Imperva",
             "ShortName": "Imperva",
             "Capability": "Imperva",
@@ -45,7 +44,6 @@
               "ClientMachineDescription": "The URL that will be used as the base URL for Imperva endpoint calls.  Should be https://my.imperva.com",
               "StorePathDescription": "Your Imperva account id.  Please refer to the [Imperva documentation](https://docs.imperva.com/howto/bd68301b) as to how to find your Imperva account id."
             }
-          }
         }
       ]
     }
