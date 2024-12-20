@@ -31,7 +31,7 @@
 
 ## Overview
 
-
+The Imperva Orchestrator Extension allows for the management of SSL certificates bound to web sites managed by the Imperva cloud-based firewall.
 
 
 
