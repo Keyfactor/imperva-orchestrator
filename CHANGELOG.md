@@ -1,4 +1,4 @@
-v1.1.1
+v1.1.0
 - Modified build to produce .net6 and .net8 compatible versions
 - Updated README documentation to use doctool
 
