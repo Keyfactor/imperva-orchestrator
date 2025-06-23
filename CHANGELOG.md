@@ -1,5 +1,5 @@
 v1.1.1
-- Bug fix to prevent API key logging
+- Bug fix to prevent API key logging 
 
 v1.1.0
 - Modified build to produce .net6 and .net8 compatible versions
