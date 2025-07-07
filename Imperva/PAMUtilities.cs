@@ -7,7 +7,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
     {
         internal static string ResolvePAMField(IPAMSecretResolver resolver, ILogger logger, string name, string key)
         {
-            logger.LogDebug($"Attempting to resolve PAM eligible field {name} with key {key}");
+            logger.LogDebug($"Attempting to resolve PAM eligible field {name}");
             return resolver.Resolve(key);
         }
     }

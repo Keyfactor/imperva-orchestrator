@@ -1,3 +1,6 @@
+v1.1.1
+- Bug fix to prevent API key logging 
+
 v1.1.0
 - Modified build to produce .net6 and .net8 compatible versions
 - Updated README documentation to use doctool
