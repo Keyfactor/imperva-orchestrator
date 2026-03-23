@@ -1,3 +1,6 @@
+v1.1.2
+- Modify error message to indicate comma separated API ID/API Key in the Store Password rather than pipe delimted
+
 v1.1.1
 - Bug fix to prevent API key logging 
 
