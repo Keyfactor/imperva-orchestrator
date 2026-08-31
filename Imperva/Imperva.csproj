@@ -8,10 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Keyfactor.Logging" Version="1.1.1" />
+    <PackageReference Include="Keyfactor.Logging" Version="1.3.0" />
     <PackageReference Include="Keyfactor.Orchestrators.IOrchestratorJobExtensions" Version="1.0.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
-    <PackageReference Include="RestSharp" Version="108.0.3" />
+    <PackageReference Include="RestSharp" Version="114.0.0" />
 
     <None Update="manifest.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
