@@ -1,3 +1,6 @@
+v1.2.0
+- Add .net10 build and remove .net6 
+
 v1.1.2
 - Modify error message to indicate comma separated API ID/API Key in the Store Password rather than pipe delimted
 
