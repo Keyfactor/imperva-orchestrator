@@ -25,19 +25,17 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 {
     class APIProcessor
     {
-        private string ApiURL { get; set; }
         private string AccountID { get; set; }
         private string ApiID { get; set; }
         private string ApiKey { get; set; }
 
 
-        public APIProcessor(string apiURL, string accountID, string apiID, string apiKey)
+        public APIProcessor(string accountID, string apiID, string apiKey)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
             AccountID = accountID;
-            ApiURL = apiURL;
             ApiID = apiID;
             ApiKey = apiKey;
 
@@ -55,11 +53,19 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             RestRequest request = new RestRequest(RESOURCE, Method.Put);
             request.AddParameter("application/json", JsonConvert.SerializeObject(certificateRequest), ParameterType.RequestBody);
 
-            JObject json = SubmitRequest(request);
-
-            logger.MethodExit(LogLevel.Debug);
-
-            return;
+            try
+            {
+                JObject json = SubmitRequest(request);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing site {siteID.ToString()}"));
+                throw;
+            }
+            finally
+            {
+                logger.MethodExit(LogLevel.Debug);
+            }
         }
 
         public void RemoveCertificate(int siteID)
@@ -70,11 +76,19 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             string RESOURCE = $"/api/prov/v2/sites/{siteID.ToString()}/customCertificate?auth_type=RSA";
             RestRequest request = new RestRequest(RESOURCE, Method.Delete);
 
-            JObject json = SubmitRequest(request);
-
-            logger.MethodExit(LogLevel.Debug);
-
-            return;
+            try
+            {
+                JObject json = SubmitRequest(request);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing site {siteID.ToString()}"));
+                throw;
+            }
+            finally
+            {
+                logger.MethodExit(LogLevel.Debug);
+            }
         }
 
         public List<Site> GetSites()
@@ -86,64 +100,62 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             int page = 0;
 
-            do
-            {
-                string RESOURCE = $"/api/prov/v1/sites/list?account_id={AccountID}&page_size=50&page_num={page.ToString()}";
-                RestRequest request = new RestRequest(RESOURCE, Method.Post);
-
-                JObject json = SubmitRequest(request);
-                List<Site> pageOfSites = JsonConvert.DeserializeObject<List<Site>>(json.SelectToken("sites").ToString());
-                if (pageOfSites.Count == 0)
-                    break;
-                else
-                    page++;
-
-                sites.AddRange(pageOfSites);
-            } while (1 == 1);
-
-
-            logger.MethodExit(LogLevel.Debug);
-
-            return sites;
-        }
-
-        public X509Certificate2 GetServerCertificateAsync(string url, out bool hadError)
-        {
-            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
-            logger.MethodEntry(LogLevel.Debug);
-            logger.LogTrace($"Calling URL {url}");
-
-            hadError = false; 
-
-            if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                url = "https://" + url;
-
-            X509Certificate2 certificate = null;
-            var httpClientHandler = new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = (_, cert, __, ___) =>
-                {
-                    logger.LogTrace("Hit handler");
-                    certificate = new X509Certificate2(cert.GetRawCertData());
-                    logger.LogTrace($"Cert returned: {cert.GetRawCertData()}");
-                    return true;
-                }
-            };
-
-            var httpClient = new HttpClient(httpClientHandler);
-
             try
             {
-                httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Head, url)).GetAwaiter().GetResult();
+                do
+                {
+                    string RESOURCE = $"/api/prov/v1/sites/list?account_id={AccountID}&page_size=50&page_num={page.ToString()}";
+                    RestRequest request = new RestRequest(RESOURCE, Method.Post);
+
+                    JObject json = SubmitRequest(request);
+                    List<Site> pageOfSites = JsonConvert.DeserializeObject<List<Site>>(json.SelectToken("sites").ToString());
+                    if (pageOfSites.Count == 0)
+                        break;
+                    else
+                        page++;
+
+                    sites.AddRange(pageOfSites);
+                } while (1 == 1);
+
+                return sites;
             }
             catch (Exception ex)
             {
-                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error retrieving certificate for {url}: "));
-                hadError = true;
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error retrieving sites"));
+                throw;
             }
+            finally
+            {
+                logger.MethodExit(LogLevel.Debug);
+            }
+        }
 
-            logger.MethodExit(LogLevel.Debug);
-            return certificate;
+        public SiteCertificates GetSiteCertificates(string siteId)
+        {
+            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
+            logger.MethodEntry(LogLevel.Debug);
+
+            SiteCertificates siteCertificates = new SiteCertificates();
+
+            string RESOURCE = $"/certificates/v3/sites/{siteId}/certificates/download";
+            RestRequest request = new RestRequest(RESOURCE, Method.Delete);
+
+            try
+            {
+                JObject json = SubmitRequest(request);
+                siteCertificates = JsonConvert.DeserializeObject<SiteCertificates>(json.ToString());
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing site {siteId.ToString()}"));
+                throw;
+            }
+            finally
+            {
+                logger.MethodExit(LogLevel.Debug);
+            }
+            
+            return siteCertificates;
         }
         #endregion
 
@@ -165,7 +177,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
             RestResponse response;
 
-            RestClient client = new RestClient(ApiURL);
+            RestClient client = new RestClient(request.Resource.Contains("/v3", StringComparison.InvariantCultureIgnoreCase) ? "https://api.imperva.com" : "https://my.imperva.com");
             request.AddHeader("x-API-Id", ApiID);
             request.AddHeader("x-API-Key", ApiKey);
 

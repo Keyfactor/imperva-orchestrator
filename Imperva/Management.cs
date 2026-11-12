@@ -36,19 +36,18 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         {
             ILogger logger = LogHandler.GetClassLogger(this.GetType());
             logger.LogDebug($"Begin {config.Capability} for job id {config.JobId}...");
-            logger.LogDebug($"Server: {config.CertificateStoreDetails.ClientMachine}");
             logger.LogDebug($"Store Path: {config.CertificateStoreDetails.StorePath}");
 
             try
             {
                 string storePassword = PAMUtilities.ResolvePAMField(_resolver, logger, "Store Password", config.CertificateStoreDetails.StorePassword);
 
-                SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, storePassword);
+                SetAPIProperties(config.CertificateStoreDetails.StorePath, storePassword);
 
                 if (config.OperationType != CertStoreOperationType.Add && config.OperationType != CertStoreOperationType.Remove)
-                    return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Site {config.CertificateStoreDetails.StorePath} on server {config.CertificateStoreDetails.ClientMachine}: Unsupported operation: {config.OperationType.ToString()}" };
+                    return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = "Unsupported operation: {config.OperationType.ToString()}" };
 
-                APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
+                APIProcessor api = new APIProcessor(AccountID, ApiID, ApiKey);
 
                 List<Site> sites = api.GetSites();
 

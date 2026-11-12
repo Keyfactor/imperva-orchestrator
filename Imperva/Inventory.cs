@@ -34,7 +34,6 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         {
             ILogger logger = LogHandler.GetClassLogger(this.GetType());
             logger.LogDebug($"Begin {config.Capability} for job id {config.JobId}...");
-            logger.LogDebug($"Server: {config.CertificateStoreDetails.ClientMachine}");
             logger.LogDebug($"Store Path: {config.CertificateStoreDetails.StorePath}");
 
             List<CurrentInventoryItem> inventoryItems = new List<CurrentInventoryItem>();
@@ -44,15 +43,15 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             {
                 string storePassword = PAMUtilities.ResolvePAMField(_resolver, logger, "Store Password", config.CertificateStoreDetails.StorePassword);
 
-                SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, storePassword);
+                SetAPIProperties(config.CertificateStoreDetails.StorePath, storePassword);
 
-                APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
+                APIProcessor api = new APIProcessor(AccountID, ApiID, ApiKey);
                 List<Site> sites = api.GetSites();
 
                 foreach(Site site in sites)
                 {
                     bool hadError = false;
-                    X509Certificate2 certificate = api.GetServerCertificateAsync(site.Domain, out hadError);
+                    X509Certificate2 certificate = api.GetCertificate(site.Domain, out hadError);
                     if (hadError)
                         oneOrMoreErrors = true;
                     if (certificate == null)
