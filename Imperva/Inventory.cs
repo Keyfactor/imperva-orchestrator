@@ -50,21 +50,27 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
                 foreach(Site site in sites)
                 {
-                    bool hadError = false;
-                    X509Certificate2 certificate = api.GetCertificate(site.Domain, out hadError);
-                    if (hadError)
-                        oneOrMoreErrors = true;
-                    if (certificate == null)
-                        continue;
-                    inventoryItems.Add(new CurrentInventoryItem()
+                    bool hasError = false;
+                    SiteCertificates data = api.GetSiteCertificates(site.SiteID, out hasError);
+
+                    foreach(List<SiteCertificate> certificates in data.Data)
                     {
-                        Alias = site.Domain,
-                        Certificates = new string[] { Convert.ToBase64String(certificate.Export(X509ContentType.Cert)) },
-                        ItemStatus = OrchestratorInventoryItemStatus.Unknown,
-                        UseChainLevel = false,
-                        PrivateKeyEntry = true,
-                        Parameters = new Dictionary<string, object>() { { "Domain", site.Domain } }
-                    });
+                        foreach(SiteCertificate certificate in certificates)
+                        {
+                            if (string.IsNullOrEmpty(certificate.Certificate))
+                                continue;
+
+                            inventoryItems.Add(new CurrentInventoryItem()
+                            {
+                                Alias = site.Domain + "|" + certificate.KeyAlgorithm,
+                                //Certificates = new string[] { Convert.ToBase64String(certificate.Export(X509ContentType.Cert)) },
+                                Certificates = FormatAndReorderCertificates(certificate.Certificate),
+                                ItemStatus = OrchestratorInventoryItemStatus.Unknown,
+                                UseChainLevel = true,
+                                PrivateKeyEntry = true
+                            });
+                        }
+                    }
                 }
             }
             catch (Exception ex)

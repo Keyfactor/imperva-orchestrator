@@ -130,15 +130,17 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
         }
 
-        public SiteCertificates GetSiteCertificates(string siteId)
+        public SiteCertificates GetSiteCertificates(int siteId, out bool hasError)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
+            hasError = false;
+
             SiteCertificates siteCertificates = new SiteCertificates();
 
             string RESOURCE = $"/certificates/v3/sites/{siteId}/certificates/download";
-            RestRequest request = new RestRequest(RESOURCE, Method.Delete);
+            RestRequest request = new RestRequest(RESOURCE, Method.Get);
 
             try
             {
@@ -147,7 +149,8 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
             catch (Exception ex)
             {
-                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing site {siteId.ToString()}"));
+                hasError = true;
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error retrieving certificate(s) for site {siteId.ToString()}"));
                 throw;
             }
             finally
@@ -190,7 +193,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             {
                 string exceptionMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing {request.Resource}");
                 logger.LogError(exceptionMessage);
-                throw ex;
+                throw;
             }
 
             if (response.StatusCode != System.Net.HttpStatusCode.OK &&

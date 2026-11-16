@@ -49,6 +49,8 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
                 APIProcessor api = new APIProcessor(AccountID, ApiID, ApiKey);
 
+                (string domain, string keyAlgorithm) = SplitAlias(config.Alias);
+
                 List<Site> sites = api.GetSites();
 
                 Site site = sites.FirstOrDefault(p => p.Domain == config.JobCertificate.Alias);
@@ -59,8 +61,8 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 {
                     case CertStoreOperationType.Add:
 
-                        bool hadError = false;
-                        if (!config.Overwrite && api.GetServerCertificateAsync(site.Domain, out hadError) != null)
+                        bool hasError = false;
+                        if (!config.Overwrite && api.GetSiteCertificates(site.SiteID, out hasError) != null)
                             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, FailureMessage = $"Overwrite is set to false but there is a certificate that already is bound to {config.JobCertificate.Alias}.  Please set overwrite to true and reschedule the job to replace this certificate." };
 
                         api.AddCertificate(site.SiteID, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
@@ -79,6 +81,16 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
 
             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
+        }
+
+        private (string, string) SplitAlias(string alias)
+        {
+            string[] parts = alias.Split('|');
+
+            if (parts.Length != 2)
+                throw new ImpervaException($"Alias {alias} is not in the expected format of <domain>|<keyAlgorithm>.");
+
+            return (parts[0], parts[1]);
         }
     }
 }
