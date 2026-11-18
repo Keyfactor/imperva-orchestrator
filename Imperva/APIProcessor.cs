@@ -43,12 +43,12 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         }
 
         #region Public Methods
-        public void AddCertificate(int siteID, string certificate, string password)
+        public void AddCertificate(int siteID, string keyAlgoritm, string certificate, string password)
         {
             ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
-            CertificateRequestPUT certificateRequest = new CertificateRequestPUT() { Certificate = certificate, Password = password };
+            CertificateRequestPUT certificateRequest = new CertificateRequestPUT() { Certificate = certificate, Password = password, AuthType = keyAlgoritm };
             string RESOURCE = $"/api/prov/v2/sites/{siteID.ToString()}/customCertificate";
             RestRequest request = new RestRequest(RESOURCE, Method.Put);
             request.AddParameter("application/json", JsonConvert.SerializeObject(certificateRequest), ParameterType.RequestBody);

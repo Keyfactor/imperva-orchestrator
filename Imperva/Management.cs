@@ -49,7 +49,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
                 APIProcessor api = new APIProcessor(AccountID, ApiID, ApiKey);
 
-                (string domain, string keyAlgorithm) = SplitAlias(config.Alias);
+                (string domain, string keyAlgorithm) = SplitAlias(config.JobCertificate.Alias);
 
                 List<Site> sites = api.GetSites();
 
@@ -65,7 +65,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                         if (!config.Overwrite && api.GetSiteCertificates(site.SiteID, out hasError) != null)
                             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, FailureMessage = $"Overwrite is set to false but there is a certificate that already is bound to {config.JobCertificate.Alias}.  Please set overwrite to true and reschedule the job to replace this certificate." };
 
-                        api.AddCertificate(site.SiteID, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
+                        api.AddCertificate(site.SiteID, keyAlgorithm, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
 
                         break;
                     case CertStoreOperationType.Remove:
@@ -75,7 +75,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
             catch (Exception ex)
             {
-                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva {config.Capability} job, URL {ApiURL}, AccountID {AccountID}, Site {config.JobCertificate.Alias}. ");
+                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva {config.Capability} job, AccountID {AccountID}, Site {config.JobCertificate.Alias}. ");
                 logger.LogError(errMessage);
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }

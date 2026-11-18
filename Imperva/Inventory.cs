@@ -75,7 +75,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
             catch (Exception ex)
             {
-                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva Inventory job, URL {ApiURL}, AccountID {AccountID}. ");
+                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva Inventory job, AccountID {AccountID}. ");
                 logger.LogError(errMessage);
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }
@@ -90,7 +90,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
             catch (Exception ex)
             {
-                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error returning cerificates for Imperva Inventory job, URL {ApiURL}, AccountID {AccountID}");
+                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error returning cerificates for Imperva Inventory job, AccountID {AccountID}");
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }
         }
