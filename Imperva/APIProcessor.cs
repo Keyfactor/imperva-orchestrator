@@ -14,9 +14,6 @@ using RestSharp;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
-using System.Net.Http;
-using System.Security.Cryptography.X509Certificates;
 
 using Keyfactor.Extensions.Orchestrator.Imperva.Model;
 using Newtonsoft.Json.Linq;
