@@ -18,9 +18,13 @@ using Keyfactor.Logging;
 using Keyfactor.Orchestrators.Extensions;
 using Keyfactor.Extensions.Orchestrator.Imperva.Model;
 using Keyfactor.Orchestrators.Common.Enums;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
+using Keyfactor.PKI;
 
 using Microsoft.Extensions.Logging;
-using Keyfactor.Orchestrators.Extensions.Interfaces;
+using Keyfactor.PKI.X509;
+using System.Text;
+using Keyfactor.PKI.CryptographicObjects.Formatters;
 
 namespace Keyfactor.Extensions.Orchestrator.Imperva
 {
@@ -35,91 +39,6 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             _resolver = resolver;
         }
 
-        public string[] FormatAndReorderCertificates(string pemChain)
-        {
-            if (string.IsNullOrWhiteSpace(pemChain))
-                return Array.Empty<string>();
-
-            MatchCollection certificateBlocks = Regex.Matches(
-                pemChain,
-                @"-----BEGIN CERTIFICATE-----\s*(?<data>[A-Za-z0-9+/=\r\n\t ]+)\s*-----END CERTIFICATE-----",
-                RegexOptions.IgnoreCase);
-
-            if (certificateBlocks.Count == 0)
-                throw new FormatException("The certificate chain does not contain any PEM certificate blocks.");
-
-            X509CertificateParser parser = new X509CertificateParser();
-            List<X509Certificate> certificates = new List<X509Certificate>();
-
-            foreach (Match block in certificateBlocks)
-            {
-                string base64 = Regex.Replace(block.Groups["data"].Value, @"\s", string.Empty);
-
-                try
-                {
-                    byte[] der = Convert.FromBase64String(base64);
-                    X509Certificate certificate = parser.ReadCertificate(der);
-                    string fingerprint = Convert.ToHexString(certificate.GetEncoded()).ToUpperInvariant();
-
-                    if (!certificates.Any(existing =>
-                        Convert.ToHexString(existing.GetEncoded()).Equals(fingerprint, StringComparison.OrdinalIgnoreCase)))
-                        certificates.Add(certificate);
-                }
-                catch (Exception ex)
-                {
-                    throw new FormatException("A PEM certificate block could not be parsed.", ex);
-                }
-            }
-
-            if (certificates.Count == 0)
-                throw new FormatException("The certificate chain does not contain any valid certificates.");
-
-            X509Certificate leaf = certificates.FirstOrDefault(certificate =>
-                !certificates.Any(other =>
-                    !ReferenceEquals(other, certificate) &&
-                    other.IssuerDN.Equals(certificate.SubjectDN))) ?? certificates[0];
-
-            List<X509Certificate> ordered = new List<X509Certificate>();
-            X509Certificate current = leaf;
-            ordered.Add(current);
-
-            while (true)
-            {
-                X509Certificate issuer = certificates.FirstOrDefault(certificate =>
-                    !ReferenceEquals(certificate, current) &&
-                    certificate.SubjectDN.Equals(current.IssuerDN));
-
-                if (issuer == null)
-                    break;
-
-                if (ordered.Any(certificate => ReferenceEquals(certificate, issuer)))
-                    break;
-
-                ordered.Add(issuer);
-                current = issuer;
-            }
-
-            foreach (X509Certificate certificate in certificates)
-            {
-                if (!ordered.Contains(certificate))
-                    ordered.Add(certificate);
-            }
-
-            return ordered.Select(FormatCertificateAsPem).ToArray();
-        }
-
-        private static string FormatCertificateAsPem(X509Certificate certificate)
-        {
-            using (StringWriter writer = new StringWriter())
-            {
-                using (PemWriter pemWriter = new PemWriter(writer))
-                {
-                    pemWriter.WriteObject(certificate);
-                }
-
-                return writer.ToString().TrimEnd('\r', '\n');
-            }
-        }
 
         public JobResult ProcessJob(InventoryJobConfiguration config, SubmitInventoryUpdate submitInventory)
         {
@@ -183,6 +102,99 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             {
                 string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error returning cerificates for Imperva Inventory job, AccountID {AccountID}");
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
+            }
+        }
+        private List<string> FormatAndReorderCertificates(string pemChain)
+        {
+            if (string.IsNullOrWhiteSpace(pemChain))
+                return new List<string>();
+
+            MatchCollection certificateBlocks = Regex.Matches(
+                pemChain,
+                @"-----BEGIN CERTIFICATE-----\s*(?<data>[A-Za-z0-9+/=\r\n\t ]+)\s*-----END CERTIFICATE-----",
+                RegexOptions.IgnoreCase);
+
+            if (certificateBlocks.Count == 0)
+                throw new FormatException("The certificate chain does not contain any PEM certificate blocks.");
+
+            X509CertificateParser parser = new X509CertificateParser();
+            List<X509Certificate> certificates = new List<X509Certificate>();
+
+            foreach (Match block in certificateBlocks)
+            {
+                string base64 = Regex.Replace(block.Groups["data"].Value, @"\s", string.Empty);
+
+                try
+                {
+                    byte[] der = Convert.FromBase64String(base64);
+                    X509Certificate certificate = parser.ReadCertificate(der);
+                    string fingerprint = Convert.ToHexString(certificate.GetEncoded()).ToUpperInvariant();
+
+                    if (!certificates.Any(existing =>
+                        Convert.ToHexString(existing.GetEncoded()).Equals(fingerprint, StringComparison.OrdinalIgnoreCase)))
+                        certificates.Add(certificate);
+                }
+                catch (Exception ex)
+                {
+                    throw new FormatException("A PEM certificate block could not be parsed.", ex);
+                }
+            }
+
+            if (certificates.Count == 0)
+                throw new FormatException("The certificate chain does not contain any valid certificates.");
+
+            certificates = X509Utilities.OrderChainCertificates(certificates, PKI.Enums.CertificateCollectionOrder.EndEntityFirst);
+
+            //X509Certificate leaf = certificates.FirstOrDefault(certificate =>
+            //    !certificates.Any(other =>
+            //        !ReferenceEquals(other, certificate) &&
+            //        other.IssuerDN.Equals(certificate.SubjectDN))) ?? certificates[0];
+
+            //List<X509Certificate> ordered = new List<X509Certificate>();
+            //X509Certificate current = leaf;
+            //ordered.Add(current);
+
+            //while (true)
+            //{
+            //    X509Certificate issuer = certificates.FirstOrDefault(certificate =>
+            //        !ReferenceEquals(certificate, current) &&
+            //        certificate.SubjectDN.Equals(current.IssuerDN));
+
+            //    if (issuer == null)
+            //        break;
+
+            //    if (ordered.Any(certificate => ReferenceEquals(certificate, issuer)))
+            //        break;
+
+            //    ordered.Add(issuer);
+            //    current = issuer;
+            //}
+
+            //foreach (X509Certificate certificate in certificates)
+            //{
+            //    if (!ordered.Contains(certificate))
+            //        ordered.Add(certificate);
+            //}
+
+            List<string> pemCertificates = new List<string>();
+            foreach (X509Certificate certificate in certificates)
+            {
+                pemCertificates.Add(CryptographicObjectFormatter.PEM.Format(certificate, false));
+            }
+
+            return pemCertificates;
+        }
+
+        private static string FormatCertificateAsPem(X509Certificate certificate)
+        {
+            using (StringWriter writer = new StringWriter())
+            {
+                using (PemWriter pemWriter = new PemWriter(writer))
+                {
+                    pemWriter.WriteObject(certificate);
+                }
+
+                return writer.ToString().TrimEnd('\r', '\n');
             }
         }
     }
