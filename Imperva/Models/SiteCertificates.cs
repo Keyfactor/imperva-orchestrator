@@ -14,7 +14,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva.Model
 {
     internal class SiteCertificates
     {
-        [JsonProperty("keyAlgorithm")]
+        [JsonProperty("data")]
         internal List<List<SiteCertificate>> Data { get; set; }
     }
 

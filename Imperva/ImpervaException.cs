@@ -11,6 +11,8 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 {
     internal class ImpervaException : ApplicationException
     {
+        public System.Net.HttpStatusCode StatusCode { get; set; }
+
         public ImpervaException(string message) : base(message)
         { }
 

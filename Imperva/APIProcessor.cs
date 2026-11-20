@@ -26,10 +26,11 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         private string ApiID { get; set; }
         private string ApiKey { get; set; }
 
+        private ILogger logger;
 
         public APIProcessor(string accountID, string apiID, string apiKey)
         {
-            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
+            logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
             AccountID = accountID;
@@ -40,12 +41,11 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         }
 
         #region Public Methods
-        public void AddCertificate(int siteID, string keyAlgoritm, string certificate, string password)
+        public void AddCertificate(string domain, int siteID, string keyAlgorithm, string certificate, string password)
         {
-            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
-            CertificateRequestPUT certificateRequest = new CertificateRequestPUT() { Certificate = certificate, Password = password, AuthType = keyAlgoritm };
+            CertificateRequestPUT certificateRequest = new CertificateRequestPUT() { Certificate = certificate, Password = password, AuthType = keyAlgorithm };
             string RESOURCE = $"/api/prov/v2/sites/{siteID.ToString()}/customCertificate";
             RestRequest request = new RestRequest(RESOURCE, Method.Put);
             request.AddParameter("application/json", JsonConvert.SerializeObject(certificateRequest), ParameterType.RequestBody);
@@ -56,7 +56,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
             catch (Exception ex)
             {
-                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing site {siteID.ToString()}"));
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing certificate for {domain} and key algorithm {keyAlgorithm}."));
                 throw;
             }
             finally
@@ -65,12 +65,11 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
         }
 
-        public void RemoveCertificate(int siteID)
+        public void RemoveCertificate(string domain, int siteID, string keyAlgorithm)
         {
-            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
-            string RESOURCE = $"/api/prov/v2/sites/{siteID.ToString()}/customCertificate?auth_type=RSA";
+            string RESOURCE = $"/api/prov/v2/sites/{siteID.ToString()}/customCertificate?auth_type={keyAlgorithm}";
             RestRequest request = new RestRequest(RESOURCE, Method.Delete);
 
             try
@@ -79,7 +78,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
             catch (Exception ex)
             {
-                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing site {siteID.ToString()}"));
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing certificate for site {domain} and key algorithm {keyAlgorithm}."));
                 throw;
             }
             finally
@@ -90,7 +89,6 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
         public List<Site> GetSites()
         {
-            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
             List<Site> sites = new List<Site>();
@@ -127,14 +125,12 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
         }
 
-        public SiteCertificates GetSiteCertificates(int siteId, out bool hasError)
+        public SiteCertificates GetSiteCertificates(int siteId)
         {
-            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
 
-            hasError = false;
-
             SiteCertificates siteCertificates = new SiteCertificates();
+            siteCertificates.Data = new List<List<SiteCertificate>>();
 
             string RESOURCE = $"/certificates/v3/sites/{siteId}/certificates/download";
             RestRequest request = new RestRequest(RESOURCE, Method.Get);
@@ -144,9 +140,20 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 JObject json = SubmitRequest(request);
                 siteCertificates = JsonConvert.DeserializeObject<SiteCertificates>(json.ToString());
             }
+            catch (ImpervaException ex)
+            {
+                if (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    logger.LogInformation($"No certificates found for site {siteId}");
+                }
+                else
+                {
+                    logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error retrieving certificates for site {siteId}"));
+                    throw;
+                }
+            }
             catch (Exception ex)
             {
-                hasError = true;
                 logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error retrieving certificate(s) for site {siteId.ToString()}"));
                 throw;
             }
@@ -161,10 +168,10 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
         private JObject SubmitRequest(RestRequest request)
         {
-            ILogger logger = LogHandler.GetClassLogger<APIProcessor>();
             logger.MethodEntry(LogLevel.Debug);
             logger.LogTrace($"Request Resource: {request.Resource}");
             logger.LogTrace($"Request Method: {request.Method.ToString()}");
+
             if (request.Method != Method.Get)
             {
                 StringBuilder body = new StringBuilder("Request Body: ");
@@ -184,12 +191,12 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             try
             {
                 response = client.Execute(request);
-                logger.MethodExit(LogLevel.Debug);
             }
             catch (Exception ex)
             {
                 string exceptionMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing {request.Resource}");
                 logger.LogError(exceptionMessage);
+                logger.MethodExit(LogLevel.Debug);
                 throw;
             }
 
@@ -202,24 +209,35 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 string exceptionMessage = $"Error processing {request.Resource}: {errorMessage}";
 
                 logger.LogError(exceptionMessage);
-                throw new ImpervaException(exceptionMessage);
+                ImpervaException exception = new ImpervaException(exceptionMessage);
+                exception.StatusCode = response.StatusCode;
+                logger.MethodExit(LogLevel.Debug);
+                throw exception;
             }
 
+            logger.LogTrace($"API Result: {response.Content}");
             JObject json = JObject.Parse(response.Content);
 
-            string err = ValidateResponse(json);
-            if (!string.IsNullOrEmpty(err))
-                throw new ImpervaException($"Error processing {request.Resource}: {err}");
+            if (!request.Resource.Contains("/v3", StringComparison.InvariantCultureIgnoreCase))
+            {
+                string err = ValidateResponse(json);
+                if (!string.IsNullOrEmpty(err))
+                {
+                    logger.MethodExit(LogLevel.Debug);
+                    throw new ImpervaException($"Error processing {request.Resource}: {err}");
+                }
+            }
 
-            logger.LogTrace($"API Result: {response.Content}");
-
+            logger.MethodExit(LogLevel.Debug);
             return json;
         }
 
         private string ValidateResponse(JObject json)
         {
+            logger.MethodEntry(LogLevel.Debug);
             int returnCode = Convert.ToInt32(JsonConvert.DeserializeObject<string>(json.SelectToken("res").ToString()));
 
+            logger.MethodExit(LogLevel.Debug);
             return returnCode == 0 ? String.Empty : $"Return code = {returnCode.ToString()}, Error = {json.SelectToken("res_message").ToString()}, Debug Info = {json.SelectToken("debug_info").ToString()}";
         }
     }

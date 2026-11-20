@@ -34,15 +34,16 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
         public IPAMSecretResolver _resolver;
 
+        private ILogger logger;
+
         public Inventory(IPAMSecretResolver resolver)
         {
             _resolver = resolver;
+            logger = LogHandler.GetClassLogger(this.GetType());
         }
-
 
         public JobResult ProcessJob(InventoryJobConfiguration config, SubmitInventoryUpdate submitInventory)
         {
-            ILogger logger = LogHandler.GetClassLogger(this.GetType());
             logger.LogDebug($"Begin {config.Capability} for job id {config.JobId}...");
             logger.LogDebug($"Store Path: {config.CertificateStoreDetails.StorePath}");
 
@@ -60,21 +61,41 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
                 foreach(Site site in sites)
                 {
-                    bool hasError = false;
-                    SiteCertificates data = api.GetSiteCertificates(site.SiteID, out hasError);
-
-                    foreach(List<SiteCertificate> certificates in data.Data)
+                    SiteCertificates data = new SiteCertificates();
+                    try
                     {
-                        foreach(SiteCertificate certificate in certificates)
+                        data = api.GetSiteCertificates(site.SiteID);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError($"Error retrieving certificates for site {site.Domain}: {ex.Message}");
+                        oneOrMoreErrors = true;
+                        continue;
+                    }
+
+                    foreach (List<SiteCertificate> certificates in data.Data)
+                    {
+                        foreach (SiteCertificate certificate in certificates)
                         {
                             if (string.IsNullOrEmpty(certificate.Certificate))
                                 continue;
 
+                            List<string> formattedCertificates = new List<string>();
+                            try
+                            {
+                                formattedCertificates = FormatAndReorderCertificates(certificate.Certificate);
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError($"Error formatting and reordering certificate chain for site {site.Domain}, {certificate.KeyAlgorithm}: {ex.Message}");
+                                oneOrMoreErrors = true;
+                                continue;
+                            }
+
                             inventoryItems.Add(new CurrentInventoryItem()
                             {
                                 Alias = site.Domain + "|" + certificate.KeyAlgorithm,
-                                //Certificates = new string[] { Convert.ToBase64String(certificate.Export(X509ContentType.Cert)) },
-                                Certificates = FormatAndReorderCertificates(certificate.Certificate),
+                                Certificates = formattedCertificates,
                                 ItemStatus = OrchestratorInventoryItemStatus.Unknown,
                                 UseChainLevel = true,
                                 PrivateKeyEntry = true
@@ -106,6 +127,8 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         }
         private List<string> FormatAndReorderCertificates(string pemChain)
         {
+            logger.MethodEntry(LogLevel.Debug);
+
             if (string.IsNullOrWhiteSpace(pemChain))
                 return new List<string>();
 
@@ -115,7 +138,10 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 RegexOptions.IgnoreCase);
 
             if (certificateBlocks.Count == 0)
+            {
+                logger.MethodExit(LogLevel.Debug);
                 throw new FormatException("The certificate chain does not contain any PEM certificate blocks.");
+            }
 
             X509CertificateParser parser = new X509CertificateParser();
             List<X509Certificate> certificates = new List<X509Certificate>();
@@ -136,45 +162,18 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 }
                 catch (Exception ex)
                 {
+                    logger.MethodExit(LogLevel.Debug);
                     throw new FormatException("A PEM certificate block could not be parsed.", ex);
                 }
             }
 
             if (certificates.Count == 0)
+            {
+                logger.MethodExit(LogLevel.Debug);
                 throw new FormatException("The certificate chain does not contain any valid certificates.");
+            }
 
             certificates = X509Utilities.OrderChainCertificates(certificates, PKI.Enums.CertificateCollectionOrder.EndEntityFirst);
-
-            //X509Certificate leaf = certificates.FirstOrDefault(certificate =>
-            //    !certificates.Any(other =>
-            //        !ReferenceEquals(other, certificate) &&
-            //        other.IssuerDN.Equals(certificate.SubjectDN))) ?? certificates[0];
-
-            //List<X509Certificate> ordered = new List<X509Certificate>();
-            //X509Certificate current = leaf;
-            //ordered.Add(current);
-
-            //while (true)
-            //{
-            //    X509Certificate issuer = certificates.FirstOrDefault(certificate =>
-            //        !ReferenceEquals(certificate, current) &&
-            //        certificate.SubjectDN.Equals(current.IssuerDN));
-
-            //    if (issuer == null)
-            //        break;
-
-            //    if (ordered.Any(certificate => ReferenceEquals(certificate, issuer)))
-            //        break;
-
-            //    ordered.Add(issuer);
-            //    current = issuer;
-            //}
-
-            //foreach (X509Certificate certificate in certificates)
-            //{
-            //    if (!ordered.Contains(certificate))
-            //        ordered.Add(certificate);
-            //}
 
             List<string> pemCertificates = new List<string>();
             foreach (X509Certificate certificate in certificates)
@@ -182,20 +181,8 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 pemCertificates.Add(CryptographicObjectFormatter.PEM.Format(certificate, false));
             }
 
+            logger.MethodExit(LogLevel.Debug);
             return pemCertificates;
-        }
-
-        private static string FormatCertificateAsPem(X509Certificate certificate)
-        {
-            using (StringWriter writer = new StringWriter())
-            {
-                using (PemWriter pemWriter = new PemWriter(writer))
-                {
-                    pemWriter.WriteObject(certificate);
-                }
-
-                return writer.ToString().TrimEnd('\r', '\n');
-            }
         }
     }
 }

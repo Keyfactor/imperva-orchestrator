@@ -53,23 +53,22 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
                 List<Site> sites = api.GetSites();
 
-                Site site = sites.FirstOrDefault(p => p.Domain == config.JobCertificate.Alias);
+                Site site = sites.FirstOrDefault(p => p.Domain == domain);
                 if (site == null)
                     throw new ImpervaException($"Site {config.JobCertificate.Alias} is not currently being managed by Imperva.  No certificate can be bound to this site.");
 
                 switch (config.OperationType)
                 {
                     case CertStoreOperationType.Add:
-
-                        bool hasError = false;
-                        if (!config.Overwrite && api.GetSiteCertificates(site.SiteID, out hasError) != null)
+                        SiteCertificates siteCertificates = api.GetSiteCertificates(site.SiteID);
+                        if (!config.Overwrite && siteCertificates != null && siteCertificates.Data != null && siteCertificates.Data.Count >= 1 && siteCertificates.Data[0][0].KeyAlgorithm == keyAlgorithm)
                             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, FailureMessage = $"Overwrite is set to false but there is a certificate that already is bound to {config.JobCertificate.Alias}.  Please set overwrite to true and reschedule the job to replace this certificate." };
 
-                        api.AddCertificate(site.SiteID, keyAlgorithm, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
+                        api.AddCertificate(domain, site.SiteID, keyAlgorithm, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
 
                         break;
                     case CertStoreOperationType.Remove:
-                        api.RemoveCertificate(site.SiteID);
+                        api.RemoveCertificate(domain, site.SiteID, keyAlgorithm);
                         break;
                 }
             }
