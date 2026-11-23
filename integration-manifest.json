@@ -42,7 +42,7 @@
           },
           "Properties": [],
           "EntryParameters": [],
-          "ClientMachineDescription": "The URL that will be used as the base URL for Imperva endpoint calls.  Should be https://my.imperva.com",
+          "ClientMachineDescription": "Not used, but Keyfactor Command requires a value, so entering anything for this is fine.",
           "StorePathDescription": "Your Imperva account id.  Please refer to the [Imperva documentation](https://docs.imperva.com/howto/bd68301b) as to how to find your Imperva account id."
           }
       ]

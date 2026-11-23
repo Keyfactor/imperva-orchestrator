@@ -7,15 +7,24 @@
 
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography.X509Certificates;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+using Org.BouncyCastle.OpenSsl;
+using Org.BouncyCastle.X509;
 
 using Keyfactor.Logging;
 using Keyfactor.Orchestrators.Extensions;
 using Keyfactor.Extensions.Orchestrator.Imperva.Model;
 using Keyfactor.Orchestrators.Common.Enums;
+using Keyfactor.Orchestrators.Extensions.Interfaces;
+using Keyfactor.PKI;
 
 using Microsoft.Extensions.Logging;
-using Keyfactor.Orchestrators.Extensions.Interfaces;
+using Keyfactor.PKI.X509;
+using System.Text;
+using Keyfactor.PKI.CryptographicObjects.Formatters;
 
 namespace Keyfactor.Extensions.Orchestrator.Imperva
 {
@@ -25,16 +34,17 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 
         public IPAMSecretResolver _resolver;
 
+        private ILogger logger;
+
         public Inventory(IPAMSecretResolver resolver)
         {
             _resolver = resolver;
+            logger = LogHandler.GetClassLogger(this.GetType());
         }
 
         public JobResult ProcessJob(InventoryJobConfiguration config, SubmitInventoryUpdate submitInventory)
         {
-            ILogger logger = LogHandler.GetClassLogger(this.GetType());
             logger.LogDebug($"Begin {config.Capability} for job id {config.JobId}...");
-            logger.LogDebug($"Server: {config.CertificateStoreDetails.ClientMachine}");
             logger.LogDebug($"Store Path: {config.CertificateStoreDetails.StorePath}");
 
             List<CurrentInventoryItem> inventoryItems = new List<CurrentInventoryItem>();
@@ -44,33 +54,59 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             {
                 string storePassword = PAMUtilities.ResolvePAMField(_resolver, logger, "Store Password", config.CertificateStoreDetails.StorePassword);
 
-                SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, storePassword);
+                SetAPIProperties(config.CertificateStoreDetails.StorePath, storePassword);
 
-                APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
+                APIProcessor api = new APIProcessor(AccountID, ApiID, ApiKey);
                 List<Site> sites = api.GetSites();
 
                 foreach(Site site in sites)
                 {
-                    bool hadError = false;
-                    X509Certificate2 certificate = api.GetServerCertificateAsync(site.Domain, out hadError);
-                    if (hadError)
-                        oneOrMoreErrors = true;
-                    if (certificate == null)
-                        continue;
-                    inventoryItems.Add(new CurrentInventoryItem()
+                    SiteCertificates data = new SiteCertificates();
+                    try
                     {
-                        Alias = site.Domain,
-                        Certificates = new string[] { Convert.ToBase64String(certificate.Export(X509ContentType.Cert)) },
-                        ItemStatus = OrchestratorInventoryItemStatus.Unknown,
-                        UseChainLevel = false,
-                        PrivateKeyEntry = true,
-                        Parameters = new Dictionary<string, object>() { { "Domain", site.Domain } }
-                    });
+                        data = api.GetSiteCertificates(site.SiteID);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogError($"Error retrieving certificates for site {site.Domain}: {ex.Message}");
+                        oneOrMoreErrors = true;
+                        continue;
+                    }
+
+                    foreach (List<SiteCertificate> certificates in data.Data)
+                    {
+                        foreach (SiteCertificate certificate in certificates)
+                        {
+                            if (string.IsNullOrEmpty(certificate.Certificate))
+                                continue;
+
+                            List<string> formattedCertificates = new List<string>();
+                            try
+                            {
+                                formattedCertificates = FormatAndReorderCertificates(certificate.Certificate);
+                            }
+                            catch (Exception ex)
+                            {
+                                logger.LogError($"Error formatting and reordering certificate chain for site {site.Domain}, {certificate.KeyAlgorithm}: {ex.Message}");
+                                oneOrMoreErrors = true;
+                                continue;
+                            }
+
+                            inventoryItems.Add(new CurrentInventoryItem()
+                            {
+                                Alias = site.Domain + "|" + certificate.KeyAlgorithm,
+                                Certificates = formattedCertificates,
+                                ItemStatus = OrchestratorInventoryItemStatus.Unknown,
+                                UseChainLevel = true,
+                                PrivateKeyEntry = true
+                            });
+                        }
+                    }
                 }
             }
             catch (Exception ex)
             {
-                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva Inventory job, URL {ApiURL}, AccountID {AccountID}. ");
+                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva Inventory job, AccountID {AccountID}. ");
                 logger.LogError(errMessage);
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }
@@ -85,9 +121,68 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
             catch (Exception ex)
             {
-                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error returning cerificates for Imperva Inventory job, URL {ApiURL}, AccountID {AccountID}");
+                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error returning cerificates for Imperva Inventory job, AccountID {AccountID}");
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }
+        }
+        private List<string> FormatAndReorderCertificates(string pemChain)
+        {
+            logger.MethodEntry(LogLevel.Debug);
+
+            if (string.IsNullOrWhiteSpace(pemChain))
+                return new List<string>();
+
+            MatchCollection certificateBlocks = Regex.Matches(
+                pemChain,
+                @"-----BEGIN CERTIFICATE-----\s*(?<data>[A-Za-z0-9+/=\r\n\t ]+)\s*-----END CERTIFICATE-----",
+                RegexOptions.IgnoreCase);
+
+            if (certificateBlocks.Count == 0)
+            {
+                logger.MethodExit(LogLevel.Debug);
+                throw new FormatException("The certificate chain does not contain any PEM certificate blocks.");
+            }
+
+            X509CertificateParser parser = new X509CertificateParser();
+            List<X509Certificate> certificates = new List<X509Certificate>();
+
+            foreach (Match block in certificateBlocks)
+            {
+                string base64 = Regex.Replace(block.Groups["data"].Value, @"\s", string.Empty);
+
+                try
+                {
+                    byte[] der = Convert.FromBase64String(base64);
+                    X509Certificate certificate = parser.ReadCertificate(der);
+                    string fingerprint = Convert.ToHexString(certificate.GetEncoded()).ToUpperInvariant();
+
+                    if (!certificates.Any(existing =>
+                        Convert.ToHexString(existing.GetEncoded()).Equals(fingerprint, StringComparison.OrdinalIgnoreCase)))
+                        certificates.Add(certificate);
+                }
+                catch (Exception ex)
+                {
+                    logger.MethodExit(LogLevel.Debug);
+                    throw new FormatException("A PEM certificate block could not be parsed.", ex);
+                }
+            }
+
+            if (certificates.Count == 0)
+            {
+                logger.MethodExit(LogLevel.Debug);
+                throw new FormatException("The certificate chain does not contain any valid certificates.");
+            }
+
+            certificates = X509Utilities.OrderChainCertificates(certificates, PKI.Enums.CertificateCollectionOrder.EndEntityFirst);
+
+            List<string> pemCertificates = new List<string>();
+            foreach (X509Certificate certificate in certificates)
+            {
+                pemCertificates.Add(CryptographicObjectFormatter.PEM.Format(certificate, false));
+            }
+
+            logger.MethodExit(LogLevel.Debug);
+            return pemCertificates;
         }
     }
 }

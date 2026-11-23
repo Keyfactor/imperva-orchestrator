@@ -36,50 +36,60 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
         {
             ILogger logger = LogHandler.GetClassLogger(this.GetType());
             logger.LogDebug($"Begin {config.Capability} for job id {config.JobId}...");
-            logger.LogDebug($"Server: {config.CertificateStoreDetails.ClientMachine}");
             logger.LogDebug($"Store Path: {config.CertificateStoreDetails.StorePath}");
 
             try
             {
                 string storePassword = PAMUtilities.ResolvePAMField(_resolver, logger, "Store Password", config.CertificateStoreDetails.StorePassword);
 
-                SetAPIProperties(config.CertificateStoreDetails.ClientMachine, config.CertificateStoreDetails.StorePath, storePassword);
+                SetAPIProperties(config.CertificateStoreDetails.StorePath, storePassword);
 
                 if (config.OperationType != CertStoreOperationType.Add && config.OperationType != CertStoreOperationType.Remove)
-                    return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = $"Site {config.CertificateStoreDetails.StorePath} on server {config.CertificateStoreDetails.ClientMachine}: Unsupported operation: {config.OperationType.ToString()}" };
+                    return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = "Unsupported operation: {config.OperationType.ToString()}" };
 
-                APIProcessor api = new APIProcessor(ApiURL, AccountID, ApiID, ApiKey);
+                APIProcessor api = new APIProcessor(AccountID, ApiID, ApiKey);
+
+                (string domain, string keyAlgorithm) = SplitAlias(config.JobCertificate.Alias);
 
                 List<Site> sites = api.GetSites();
 
-                Site site = sites.FirstOrDefault(p => p.Domain == config.JobCertificate.Alias);
+                Site site = sites.FirstOrDefault(p => p.Domain == domain);
                 if (site == null)
                     throw new ImpervaException($"Site {config.JobCertificate.Alias} is not currently being managed by Imperva.  No certificate can be bound to this site.");
 
                 switch (config.OperationType)
                 {
                     case CertStoreOperationType.Add:
-
-                        bool hadError = false;
-                        if (!config.Overwrite && api.GetServerCertificateAsync(site.Domain, out hadError) != null)
+                        SiteCertificates siteCertificates = api.GetSiteCertificates(site.SiteID);
+                        if (!config.Overwrite && siteCertificates != null && siteCertificates.Data != null && siteCertificates.Data.Count >= 1 && siteCertificates.Data[0][0].KeyAlgorithm == keyAlgorithm)
                             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Warning, JobHistoryId = config.JobHistoryId, FailureMessage = $"Overwrite is set to false but there is a certificate that already is bound to {config.JobCertificate.Alias}.  Please set overwrite to true and reschedule the job to replace this certificate." };
 
-                        api.AddCertificate(site.SiteID, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
+                        api.AddCertificate(domain, site.SiteID, keyAlgorithm, config.JobCertificate.Contents, config.JobCertificate.PrivateKeyPassword);
 
                         break;
                     case CertStoreOperationType.Remove:
-                        api.RemoveCertificate(site.SiteID);
+                        api.RemoveCertificate(domain, site.SiteID, keyAlgorithm);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva {config.Capability} job, URL {ApiURL}, AccountID {AccountID}, Site {config.JobCertificate.Alias}. ");
+                string errMessage = ImpervaException.FlattenExceptionMessages(ex, $"Error processing Imperva {config.Capability} job, AccountID {AccountID}, Site {config.JobCertificate.Alias}. ");
                 logger.LogError(errMessage);
                 return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Failure, JobHistoryId = config.JobHistoryId, FailureMessage = errMessage };
             }
 
             return new JobResult() { Result = Keyfactor.Orchestrators.Common.Enums.OrchestratorJobStatusJobResult.Success, JobHistoryId = config.JobHistoryId };
+        }
+
+        private (string, string) SplitAlias(string alias)
+        {
+            string[] parts = alias.Split('|');
+
+            if (parts.Length != 2)
+                throw new ImpervaException($"Alias {alias} is not in the expected format of <domain>|<keyAlgorithm>.");
+
+            return (parts[0], parts[1]);
         }
     }
 }
