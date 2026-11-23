@@ -19,6 +19,6 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva.Model
         [JsonProperty("passphrase")]
         internal string Password { get; set; }
         [JsonProperty("auth_type")]
-        internal string AuthType { get { return "RSA"; } }
+        internal string AuthType { get; set; }
     }
 }
