@@ -9,18 +9,16 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
 {
     public class BaseJob
     {
-        internal string ApiURL { get; set; }
         internal string AccountID { get; set; }
         internal string ApiID { get; set; }
         internal string ApiKey { get; set; }
 
-        internal void SetAPIProperties(string apiUrl, string accountID, string apiIDKey)
+        internal void SetAPIProperties(string accountID, string apiIDKey)
         {
             string[] properties = apiIDKey.Split(new char[] { ',' });
             if (properties.Length != 2)
                 throw new ImpervaException("Invalid Store Password.  Value must a string with 2 values, your Api ID then Api Key separated by ','");
 
-            ApiURL = apiUrl;
             AccountID = accountID;
             ApiID = properties[0];
             ApiKey = properties[1];
