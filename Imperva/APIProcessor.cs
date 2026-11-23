@@ -56,7 +56,7 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
             }
             catch (Exception ex)
             {
-                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error removing certificate for {domain} and key algorithm {keyAlgorithm}."));
+                logger.LogError(ImpervaException.FlattenExceptionMessages(ex, $"Error adding certificate for {domain} and key algorithm {keyAlgorithm}."));
                 throw;
             }
             finally
@@ -208,7 +208,6 @@ namespace Keyfactor.Extensions.Orchestrator.Imperva
                 string errorMessage = response.Content + " " + response.ErrorMessage;
                 string exceptionMessage = $"Error processing {request.Resource}: {errorMessage}";
 
-                logger.LogError(exceptionMessage);
                 ImpervaException exception = new ImpervaException(exceptionMessage);
                 exception.StatusCode = response.StatusCode;
                 logger.MethodExit(LogLevel.Debug);
